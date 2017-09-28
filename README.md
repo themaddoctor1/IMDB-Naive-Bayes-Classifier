@@ -29,14 +29,14 @@ pip install numpy matplotlib
 To use the program, one can run:
 
 ```
-python class.py (<label> <value>)*
+python class.py <csv_file> (<label> <value>)*
 ```
 
 Where ```(<label> <value>)*``` represents an arbitrary number of uses of label-value
 pairs. For instance, to predict based on duration and director name, one would run:
 
 ```
-python class.py duration 162 director_name "Christopher Nolan"
+python class.py ./movie_metadata.csv duration 162 director_name "Christopher Nolan"
 ```
 
 As of the latest test, this result should yield the same rating as was given

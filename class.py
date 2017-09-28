@@ -4,14 +4,17 @@ import csv
 import numpy as np
 import matplotlib.pyplot as plt
 
-csvfile = open('./class/movie_metadata.csv')
+csvfile = open(sys.argv[1])
 csvdict = csv.DictReader(csvfile)
 
+# Information about the category to classify information into.
 categories = [str(int(i/10))+'.'+str(i%10) for i in range(101)]
-C_INDEX = -1
 C_NAME = 'imdb_score'
 
+# The list of features that are recognized.
 features = ['director_name', 'duration', 'actor_1_name', 'actor_2_name', 'genres', 'plot_keywords', 'actor_(.*)_name']
+
+# Types used for parsing.
 f_type = {
     'director_name' : 'str',
     'duration' : 'num',
@@ -24,8 +27,13 @@ f_type = {
 f_filters = {f : (lambda x: [x]) if f_type[f] != 'strs' else (lambda x : x.split('|')) for f in features}
 f_index = {}
 
+# The measurements that will be collected.
 measurements = {}
+
+# Probabilities for each event (will eventually be computed)
 probabilities = {f : {} for f in features}
+
+# Provide an initial space for the probability of a given category.
 probabilities[C_NAME] = {c : 0 for c in categories}
 
 def add_measurement(measurements, feature, value, category):
@@ -64,6 +72,7 @@ for row in csvdict:
     observation = {}
     for f in features:
         if f_type[f] == 'regex':
+            # We will have to check multiple columns for values.
             obss = []
             for r in row:
                 if re.compile(f).match(r):
@@ -71,11 +80,12 @@ for row in csvdict:
             observation[f] = obss 
         else: 
             observation[f] = f_filters[f](row[f])
-
+    
+    # Adds an occurence of the given category.
     category = row[C_NAME]
     probabilities[C_NAME][category] += 1.0
     
-    # Record the measurement.
+    # Record the measurement(s).
     for f in features:
         for obs in observation[f]:
             add_measurement(measurements, f, obs, category)
@@ -159,10 +169,7 @@ def NaiveBayes(labels):
     for c in categories:
         p = P(c)
         # Now, multiply out all of the likelihoods
-        for f in labels:
-            # Get the observation
-            m = labels[f]
-
+        for f, m in labels:
             # Update the probability
             pr = Pr(f, m, c)
             p *= pr
@@ -175,29 +182,31 @@ def NaiveBayes(labels):
 
 if __name__ == '__main__':
     
-    if len(sys.argv) > 1 and sys.argv[1] == 'help':
-        print('To run, execute \'python', sys.argv[0], '(<f_name> <f_value>)*\'')
+    if len(sys.argv) <= 1 or sys.argv[1] == 'help':
+        # Helpful information
+        print('usage: python', sys.argv[0], '<csv_file> (<f_name> <f_value>)*')
         print('The following labels are available:')
         for f in features:
             print(f)
         exit()
-
-    my_labels = {}
-    for i in range(1, len(sys.argv), 2):
+    
+    # Get the labels to handle.
+    my_labels = []
+    for i in range(2, len(sys.argv), 2):
         f = sys.argv[i]
         m = sys.argv[i+1]
-        my_labels[f] = m
+        my_labels.append((f, m))
 
     my_preds = []
     
     p_net = 0
 
     for c in categories:
+        # Compute the initial probability
         p = P(c)
         
-        for f in my_labels:
-            m = my_labels[f]
-
+        for f, m in my_labels:
+            # Compute the next part of the probability
             p *= Pr(f, m, c)
         
         p_net += p
