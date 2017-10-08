@@ -4,28 +4,44 @@ import csv
 import numpy as np
 import matplotlib.pyplot as plt
 
-csvfile = open(sys.argv[1])
-csvdict = csv.DictReader(csvfile)
-
 # Information about the category to classify information into.
 categories = [str(int(i/10))+'.'+str(i%10) for i in range(101)]
 C_NAME = 'imdb_score'
-
-# The list of features that are recognized.
-features = ['director_name', 'duration', 'actor_1_name', 'actor_2_name', 'genres', 'plot_keywords', 'actor_(.*)_name']
 
 # Types used for parsing.
 f_type = {
     'director_name' : 'str',
     'duration' : 'num',
-    'actor_1_name' : 'str',
-    'actor_2_name' : 'str',
     'genres' : 'strs',
     'plot_keywords' : 'strs',
     'actor_(.*)_name' : 'regex',
+    'content_rating' : 'str',
+    'language' : 'str',
+    'country' : 'str',
+    'gross' : 'num',
+    'budget' : 'num',
+    'title_year' : 'num',
+    'facenumber_in_poster' : 'num',
 }
+
+# The list of features that are recognized.
+features = [f for f in f_type]
+
 f_filters = {f : (lambda x: [x]) if f_type[f] != 'strs' else (lambda x : x.split('|')) for f in features}
 f_index = {}
+
+# Display informative information if needed
+if len(sys.argv) < 2 or sys.argv[1] == 'help':
+        # Helpful information
+        print('usage: python', sys.argv[0], '<csv_file> (<f_name> <f_value>)*')
+        print('The following labels are available:')
+        for f in features:
+            print('',f)
+        exit()
+
+# Open the CSV for reading
+csvfile = open(sys.argv[1])
+csvdict = csv.DictReader(csvfile)
 
 # The measurements that will be collected.
 measurements = {}
@@ -58,6 +74,7 @@ cols = None
 row_num = 0
 for row in csvdict:
     
+    # Skip rows that are missing information
     if any(f_type[f] != 'regex' and row[f] == '' for f in features):
         continue
     
@@ -92,6 +109,8 @@ for row in csvdict:
     
     #print()
     row_num += 1
+
+print('Found', row_num, 'usable movies')
 
 # Now, we condense the probabilities.
 for f in features:
@@ -155,8 +174,18 @@ def Pr(f, m, c):
             return 0
         else:
             mean, stddev = probabilities[f][c]
-            #print(f, '~ N(', mean, ',', stddev, ')')
-            return math.exp(-((float(m) - mean) / stddev)**2) / math.sqrt(2*math.pi)
+            #print(f, '~ N(', mean, ',', stddev, '|', 'C', '=', c, ')')
+            if stddev == 0:
+                return float('inf') if mean == float(m) else 0
+            else:
+                # First, handle z-value
+                z = (float(m) - mean) / stddev
+
+                # Then, compute density value
+                p = math.exp(-0.5*z**2) / math.sqrt(2*math.pi * stddev**2)
+
+                # Finally, return the density value.
+                return p
 
 def NaiveBayes(labels):
     """Performs Naive-Bayes classification. Given a set of labels
@@ -181,15 +210,7 @@ def NaiveBayes(labels):
     return C_max
 
 if __name__ == '__main__':
-    
-    if len(sys.argv) <= 1 or sys.argv[1] == 'help':
-        # Helpful information
-        print('usage: python', sys.argv[0], '<csv_file> (<f_name> <f_value>)*')
-        print('The following labels are available:')
-        for f in features:
-            print(f)
-        exit()
-    
+     
     # Get the labels to handle.
     my_labels = []
     for i in range(2, len(sys.argv), 2):
